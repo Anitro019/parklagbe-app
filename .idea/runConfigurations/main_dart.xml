@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="main.dart" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="additionalArgs" value="--dart-define=SUPABASE_URL=https://nfjejfnmugdhaorobvhd.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_ChWgLal6M-V3AKePOJVZJg_QVBl5QFl" />
+    <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>
