@@ -6,6 +6,20 @@ import '../../widgets/widgets.dart';
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
+  /// Static helper to display the Forgot Password flow as a Modal Dialog
+  static Future<void> showResetDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => const Dialog(
+        insetPadding: EdgeInsets.all(16),
+        child: SizedBox(
+          width: 420,
+          child: ForgotPasswordScreen(),
+        ),
+      ),
+    );
+  }
+
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }

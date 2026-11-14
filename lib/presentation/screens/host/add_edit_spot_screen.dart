@@ -1,8 +1,11 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/permission_disclosures.dart';
 import '../../../data/models/parking_photo.dart';
 import '../../../data/models/parking_spot.dart';
 import '../../../data/repositories/spot_repository.dart';
@@ -12,11 +15,7 @@ class AddEditSpotScreen extends StatefulWidget {
   final String ownerId;
   final ParkingSpot? spot; // Null for new spot, non-null for editing
 
-  const AddEditSpotScreen({
-    super.key,
-    required this.ownerId,
-    this.spot,
-  });
+  const AddEditSpotScreen({super.key, required this.ownerId, this.spot});
 
   @override
   State<AddEditSpotScreen> createState() => _AddEditSpotScreenState();
@@ -48,8 +47,27 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
   TimeOfDay _availableStart = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _availableEnd = const TimeOfDay(hour: 22, minute: 0);
 
-  final List<String> _selectedDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  final List<String> _allDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  DateTime? _availableStartDate = DateTime.now();
+  DateTime? _availableEndDate = DateTime.now().add(const Duration(days: 30));
+
+  final List<String> _selectedDays = [
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat',
+    'sun',
+  ];
+  final List<String> _allDays = [
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat',
+    'sun',
+  ];
   final Map<String, String> _dayLabels = {
     'mon': 'Mon',
     'tue': 'Tue',
@@ -83,12 +101,24 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
     _areaController = TextEditingController(text: s?.area ?? '');
     _addressController = TextEditingController(text: s?.address ?? '');
     _mapsUrlController = TextEditingController(text: s?.googleMapsUrl ?? '');
-    _capacityController = TextEditingController(text: (s?.capacity ?? 1).toString());
-    _hourlyPriceController = TextEditingController(text: s?.hourlyPrice != null ? s!.hourlyPrice!.toStringAsFixed(0) : '');
-    _dailyPriceController = TextEditingController(text: s?.dailyPrice != null ? s!.dailyPrice!.toStringAsFixed(0) : '');
-    _monthlyPriceController = TextEditingController(text: s?.monthlyPrice != null ? s!.monthlyPrice!.toStringAsFixed(0) : '');
-    _advanceReqController = TextEditingController(text: (s?.advanceRequirementPercentage ?? 0).toStringAsFixed(0));
-    _contactPhoneController = TextEditingController(text: s?.contactPhone ?? '');
+    _capacityController = TextEditingController(
+      text: (s?.capacity ?? 1).toString(),
+    );
+    _hourlyPriceController = TextEditingController(
+      text: s?.hourlyPrice != null ? s!.hourlyPrice!.toStringAsFixed(0) : '',
+    );
+    _dailyPriceController = TextEditingController(
+      text: s?.dailyPrice != null ? s!.dailyPrice!.toStringAsFixed(0) : '',
+    );
+    _monthlyPriceController = TextEditingController(
+      text: s?.monthlyPrice != null ? s!.monthlyPrice!.toStringAsFixed(0) : '',
+    );
+    _advanceReqController = TextEditingController(
+      text: (s?.advanceRequirementPercentage ?? 0).toStringAsFixed(0),
+    );
+    _contactPhoneController = TextEditingController(
+      text: s?.contactPhone ?? '',
+    );
     _rulesController = TextEditingController(text: s?.rules ?? '');
 
     if (s != null) {
@@ -100,8 +130,18 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
       _selectedFacilities.clear();
       _selectedFacilities.addAll(s.facilities);
 
-      _availableStart = _parseTime(s.availableHoursStart, const TimeOfDay(hour: 8, minute: 0));
-      _availableEnd = _parseTime(s.availableHoursEnd, const TimeOfDay(hour: 22, minute: 0));
+      _availableStart = _parseTime(
+        s.availableHoursStart,
+        const TimeOfDay(hour: 8, minute: 0),
+      );
+      _availableEnd = _parseTime(
+        s.availableHoursEnd,
+        const TimeOfDay(hour: 22, minute: 0),
+      );
+
+      _availableStartDate = s.availableStartDate ?? DateTime.now();
+      _availableEndDate =
+          s.availableEndDate ?? DateTime.now().add(const Duration(days: 30));
 
       _loadExistingPhotos(s.id);
     }
@@ -148,6 +188,8 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
   }
 
   Future<void> _pickPhotos() async {
+    if (!await PermissionDisclosures.showMediaDisclosure(context)) return;
+
     final picker = ImagePicker();
     final pickedFiles = await picker.pickMultiImage(imageQuality: 80);
 
@@ -169,12 +211,28 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (!_allowCar && !_allowBike) {
-      setState(() => _errorMessage = 'Select at least one allowed vehicle type.');
+      setState(
+        () => _errorMessage = 'Select at least one allowed vehicle type.',
+      );
       return;
     }
 
     if (_selectedDays.isEmpty) {
-      setState(() => _errorMessage = 'Select at least one operating day of the week.');
+      setState(
+        () => _errorMessage = 'Select at least one operating day of the week.',
+      );
+      return;
+    }
+
+    // Minimum 2 Spot Photos Enforced (Requirement 6)
+    final totalPhotoCount =
+        _existingPhotos.length -
+        _deletePhotoIds.length +
+        (kIsWeb ? _newPhotoBytes.length : _newPhotoFiles.length);
+    if (totalPhotoCount < 2) {
+      setState(
+        () => _errorMessage = 'Minimum 2 clear spot photos are required for listing verification. Please add more photos.',
+      );
       return;
     }
 
@@ -188,14 +246,33 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
       if (_allowCar) vehicleTypes.add('car');
       if (_allowBike) vehicleTypes.add('bike');
 
-      final hourly = double.tryParse(_hourlyPriceController.text.trim());
-      final daily = double.tryParse(_dailyPriceController.text.trim());
-      final monthly = double.tryParse(_monthlyPriceController.text.trim());
+      final hourlyText = _hourlyPriceController.text.trim();
+      final dailyText = _dailyPriceController.text.trim();
+      final monthlyText = _monthlyPriceController.text.trim();
+
+      final hourly = hourlyText.isNotEmpty ? double.tryParse(hourlyText) : null;
+      final daily = dailyText.isNotEmpty ? double.tryParse(dailyText) : null;
+      final monthly = monthlyText.isNotEmpty ? double.tryParse(monthlyText) : null;
+
+      // Validate that AT LEAST ONE pricing option is provided and positive
+      final hasHourly = hourly != null && hourly > 0;
+      final hasDaily = daily != null && daily > 0;
+      final hasMonthly = monthly != null && monthly > 0;
+
+      if (!hasHourly && !hasDaily && !hasMonthly) {
+        setState(
+          () => _errorMessage = 'Please enter at least one pricing rate (Hourly, Daily, or Monthly).',
+        );
+        return;
+      }
+
       final mapsUrl = _mapsUrlController.text.trim();
       final contactPhone = _contactPhoneController.text.trim();
 
-      final startStr = '${_availableStart.hour.toString().padLeft(2, '0')}:${_availableStart.minute.toString().padLeft(2, '0')}:00';
-      final endStr = '${_availableEnd.hour.toString().padLeft(2, '0')}:${_availableEnd.minute.toString().padLeft(2, '0')}:00';
+      final startStr =
+          '${_availableStart.hour.toString().padLeft(2, '0')}:${_availableStart.minute.toString().padLeft(2, '0')}:00';
+      final endStr =
+          '${_availableEnd.hour.toString().padLeft(2, '0')}:${_availableEnd.minute.toString().padLeft(2, '0')}:00';
 
       if (widget.spot == null) {
         // Create
@@ -216,9 +293,12 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
           availableHoursStart: startStr,
           availableHoursEnd: endStr,
           availableDays: _selectedDays,
+          availableStartDate: _availableStartDate,
+          availableEndDate: _availableEndDate,
           rules: _rulesController.text.trim(),
           facilities: _selectedFacilities,
-          advanceRequirementPercentage: double.tryParse(_advanceReqController.text.trim()) ?? 0.0,
+          advanceRequirementPercentage:
+              double.tryParse(_advanceReqController.text.trim()) ?? 0.0,
           contactPhone: contactPhone.isNotEmpty ? contactPhone : null,
           isContactVisible: _isContactVisible,
           newPhotoFiles: _newPhotoFiles,
@@ -244,9 +324,12 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
           availableHoursStart: startStr,
           availableHoursEnd: endStr,
           availableDays: _selectedDays,
+          availableStartDate: _availableStartDate,
+          availableEndDate: _availableEndDate,
           rules: _rulesController.text.trim(),
           facilities: _selectedFacilities,
-          advanceRequirementPercentage: double.tryParse(_advanceReqController.text.trim()) ?? 0.0,
+          advanceRequirementPercentage:
+              double.tryParse(_advanceReqController.text.trim()) ?? 0.0,
           contactPhone: contactPhone.isNotEmpty ? contactPhone : null,
           isContactVisible: _isContactVisible,
           newPhotoFiles: _newPhotoFiles,
@@ -284,7 +367,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.spot == null ? 'List New Parking Spot' : 'Edit Parking Spot'),
+        title: Text(
+          widget.spot == null ? 'List New Parking Spot' : 'Edit Parking Spot',
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -304,7 +389,10 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                     ),
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: AppColors.error, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -317,7 +405,8 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   controller: _titleController,
                   label: 'Listing Title',
                   hint: 'e.g. Covered Garage Spot in Gulshan 2',
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter title' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Enter title' : null,
                 ),
                 const SizedBox(height: 12),
                 ParkTextField(
@@ -332,7 +421,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                       child: ParkTextField(
                         controller: _divisionController,
                         label: 'Division',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter division' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Enter division'
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -340,7 +431,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                       child: ParkTextField(
                         controller: _districtController,
                         label: 'District',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter district' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Enter district'
+                            : null,
                       ),
                     ),
                   ],
@@ -350,14 +443,16 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   controller: _areaController,
                   label: 'Area / Neighborhood',
                   hint: 'e.g. Gulshan 2, Dhanmondi, Uttara',
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter area' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Enter area' : null,
                 ),
                 const SizedBox(height: 12),
                 ParkTextField(
                   controller: _addressController,
                   label: 'Full Street Address',
                   hint: 'e.g. House 14, Road 11, Block D',
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter address' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Enter address' : null,
                 ),
                 const SizedBox(height: 12),
                 ParkTextField(
@@ -367,15 +462,20 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   validator: (v) {
                     if (v != null && v.trim().isNotEmpty) {
                       final uri = Uri.tryParse(v.trim());
-                      if (uri == null || !uri.hasScheme) return 'Enter a valid URL';
+                      if (uri == null || !uri.hasScheme) {
+                        return 'Enter a valid URL';
+                      }
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 24),
 
-                // Section 2: Operational Days & Hours
-                _buildSectionHeader('2. Operating Days & Hours', isDark),
+                // Section 2: Availability Date Range & Operating Hours
+                _buildSectionHeader(
+                  '2. Availability Date Range & Operating Hours',
+                  isDark,
+                ),
                 const SizedBox(height: 12),
                 ParkCard(
                   padding: const EdgeInsets.all(16),
@@ -383,8 +483,151 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
+                        'Availability Date Range',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.neonLime
+                              : AppColors.accentLight,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Set when your parking space is active (e.g. Nov 1 to Nov 15, or full month)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 20,
+                              ),
+                              title: const Text('Start Date'),
+                              subtitle: Text(
+                                _availableStartDate != null
+                                    ? '${_availableStartDate!.day}/${_availableStartDate!.month}/${_availableStartDate!.year}'
+                                    : 'Select',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                      _availableStartDate ?? DateTime.now(),
+                                  firstDate: DateTime.now().subtract(
+                                    const Duration(days: 30),
+                                  ),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (picked != null) {
+                                  setState(() => _availableStartDate = picked);
+                                }
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.event_available_rounded,
+                                size: 20,
+                              ),
+                              title: const Text('End Date'),
+                              subtitle: Text(
+                                _availableEndDate != null
+                                    ? '${_availableEndDate!.day}/${_availableEndDate!.month}/${_availableEndDate!.year}'
+                                    : 'Select',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                      _availableEndDate ??
+                                      DateTime.now().add(
+                                        const Duration(days: 30),
+                                      ),
+                                  firstDate:
+                                      _availableStartDate ?? DateTime.now(),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (picked != null) {
+                                  setState(() => _availableEndDate = picked);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ActionChip(
+                            label: const Text('Next 14 Days'),
+                            onPressed: () {
+                              setState(() {
+                                _availableStartDate = DateTime.now();
+                                _availableEndDate = DateTime.now().add(
+                                  const Duration(days: 14),
+                                );
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            label: const Text('Full Month (30 Days)'),
+                            onPressed: () {
+                              setState(() {
+                                _availableStartDate = DateTime.now();
+                                _availableEndDate = DateTime.now().add(
+                                  const Duration(days: 30),
+                                );
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            label: const Text('Next 60 Days'),
+                            onPressed: () {
+                              setState(() {
+                                _availableStartDate = DateTime.now();
+                                _availableEndDate = DateTime.now().add(
+                                  const Duration(days: 60),
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24),
+                      Text(
                         'Operating Hours Window',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.neonLime
+                              : AppColors.accentLight,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -395,10 +638,20 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.access_time_rounded),
                               title: const Text('Opens At'),
-                              subtitle: Text(_availableStart.format(context), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                _availableStart.format(context),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               onTap: () async {
-                                final picked = await showTimePicker(context: context, initialTime: _availableStart);
-                                if (picked != null) setState(() => _availableStart = picked);
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: _availableStart,
+                                );
+                                if (picked != null) {
+                                  setState(() => _availableStart = picked);
+                                }
                               },
                             ),
                           ),
@@ -406,12 +659,24 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                             child: ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.access_time_filled_rounded),
+                              leading: const Icon(
+                                Icons.access_time_filled_rounded,
+                              ),
                               title: const Text('Closes At'),
-                              subtitle: Text(_availableEnd.format(context), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                _availableEnd.format(context),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               onTap: () async {
-                                final picked = await showTimePicker(context: context, initialTime: _availableEnd);
-                                if (picked != null) setState(() => _availableEnd = picked);
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: _availableEnd,
+                                );
+                                if (picked != null) {
+                                  setState(() => _availableEnd = picked);
+                                }
                               },
                             ),
                           ),
@@ -420,7 +685,13 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'Available Operating Days',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.neonLime
+                              : AppColors.accentLight,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -456,17 +727,27 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                       CheckboxListTile(
                         value: _allowCar,
                         title: const Text('Car / Microbus / SUV'),
-                        activeColor: isDark ? AppColors.neonLime : AppColors.accentLight,
-                        checkColor: isDark ? AppColors.midnightNavy : Colors.white,
-                        onChanged: (val) => setState(() => _allowCar = val ?? false),
+                        activeColor: isDark
+                            ? AppColors.neonLime
+                            : AppColors.accentLight,
+                        checkColor: isDark
+                            ? AppColors.midnightNavy
+                            : Colors.white,
+                        onChanged: (val) =>
+                            setState(() => _allowCar = val ?? false),
                       ),
                       const Divider(height: 1),
                       CheckboxListTile(
                         value: _allowBike,
                         title: const Text('Motorbike / Scooter'),
-                        activeColor: isDark ? AppColors.neonLime : AppColors.accentLight,
-                        checkColor: isDark ? AppColors.midnightNavy : Colors.white,
-                        onChanged: (val) => setState(() => _allowBike = val ?? false),
+                        activeColor: isDark
+                            ? AppColors.neonLime
+                            : AppColors.accentLight,
+                        checkColor: isDark
+                            ? AppColors.midnightNavy
+                            : Colors.white,
+                        onChanged: (val) =>
+                            setState(() => _allowBike = val ?? false),
                       ),
                     ],
                   ),
@@ -478,44 +759,80 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     final n = int.tryParse(v ?? '');
-                    if (n == null || n <= 0) return 'Capacity must be at least 1';
+                    if (n == null || n <= 0) {
+                      return 'Capacity must be at least 1';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 24),
 
                 // Section 4: Pricing (BDT ৳)
-                _buildSectionHeader('4. Pricing (BDT ৳)', isDark),
+                _buildSectionHeader('4. Pricing (BDT ৳ - Fill At Least One Option)', isDark),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ParkTextField(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth < 280
+                        ? 1
+                        : (constraints.maxWidth >= 560 ? 3 : 2);
+                    final fieldWidth =
+                        (constraints.maxWidth - (columns - 1) * 8) / columns;
+
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 12,
+                      children: [
+                        SizedBox(
+                          width: fieldWidth,
+                          child: ParkTextField(
                         controller: _hourlyPriceController,
                         label: 'Hourly (৳)',
                         hint: '100',
                         keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ParkTextField(
+                        validator: (v) {
+                          if (v != null && v.trim().isNotEmpty) {
+                            final p = double.tryParse(v.trim());
+                            if (p == null || p <= 0) return 'Must be > 0';
+                          }
+                          return null;
+                        },
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: ParkTextField(
                         controller: _dailyPriceController,
                         label: 'Daily (৳)',
                         hint: '800',
                         keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ParkTextField(
+                        validator: (v) {
+                          if (v != null && v.trim().isNotEmpty) {
+                            final p = double.tryParse(v.trim());
+                            if (p == null || p <= 0) return 'Must be > 0';
+                          }
+                          return null;
+                        },
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: ParkTextField(
                         controller: _monthlyPriceController,
                         label: 'Monthly (৳)',
                         hint: '6000',
                         keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
+                        validator: (v) {
+                          if (v != null && v.trim().isNotEmpty) {
+                            final p = double.tryParse(v.trim());
+                            if (p == null || p <= 0) return 'Must be > 0';
+                          }
+                          return null;
+                        },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 ParkTextField(
@@ -525,7 +842,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     final p = double.tryParse(v ?? '0');
-                    if (p == null || p < 0 || p > 100) return 'Enter % between 0 and 100';
+                    if (p == null || p < 0 || p > 100) {
+                      return 'Enter % between 0 and 100';
+                    }
                     return null;
                   },
                 ),
@@ -545,9 +864,15 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   child: SwitchListTile(
                     value: _isContactVisible,
                     title: const Text('Show Contact Phone to Renters'),
-                    subtitle: const Text('Allow renters to see phone number upon booking confirmation'),
-                    activeTrackColor: isDark ? AppColors.neonLime : AppColors.accentLight,
-                    activeThumbColor: isDark ? AppColors.midnightNavy : Colors.white,
+                    subtitle: const Text(
+                      'Allow renters to see phone number upon booking confirmation',
+                    ),
+                    activeTrackColor: isDark
+                        ? AppColors.neonLime
+                        : AppColors.accentLight,
+                    activeThumbColor: isDark
+                        ? AppColors.midnightNavy
+                        : Colors.white,
                     onChanged: (val) => setState(() => _isContactVisible = val),
                   ),
                 ),
@@ -560,7 +885,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                 const SizedBox(height: 32),
 
                 ParkButton(
-                  text: widget.spot == null ? 'Publish Parking Spot' : 'Update Parking Spot',
+                  text: widget.spot == null
+                      ? 'Publish Parking Spot'
+                      : 'Update Parking Spot',
                   isLoading: _isLoading,
                   onPressed: _handleSubmit,
                 ),
@@ -613,7 +940,11 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                     child: CircleAvatar(
                       radius: 12,
                       backgroundColor: Colors.black.withValues(alpha: 0.7),
-                      child: const Icon(Icons.close, size: 14, color: Colors.white),
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -644,7 +975,11 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                     child: CircleAvatar(
                       radius: 12,
                       backgroundColor: Colors.black.withValues(alpha: 0.7),
-                      child: const Icon(Icons.close, size: 14, color: Colors.white),
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -674,7 +1009,11 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   child: CircleAvatar(
                     radius: 12,
                     backgroundColor: Colors.black.withValues(alpha: 0.7),
-                    child: const Icon(Icons.close, size: 14, color: Colors.white),
+                    child: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -692,7 +1031,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
               color: isDark ? AppColors.deepBlue : AppColors.surfaceBorderLight,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isDark ? AppColors.surfaceBorderDark : AppColors.surfaceBorderLight,
+                color: isDark
+                    ? AppColors.surfaceBorderDark
+                    : AppColors.surfaceBorderLight,
               ),
             ),
             child: Column(
@@ -708,7 +1049,9 @@ class _AddEditSpotScreenState extends State<AddEditSpotScreen> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
               ],

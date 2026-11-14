@@ -19,6 +19,16 @@ class NotificationRepository {
         .toList();
   }
 
+  /// Stream live real-time in-app notifications via Supabase Realtime
+  static Stream<List<AppNotification>> streamUserNotifications(String userId) {
+    return _client
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .map((list) => list.map((json) => AppNotification.fromJson(json)).toList());
+  }
+
   /// Mark single notification as read
   static Future<void> markAsRead(String notificationId) async {
     await _client

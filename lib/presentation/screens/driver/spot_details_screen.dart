@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/datetime_utils.dart';
 import '../../../core/utils/formatters.dart';
@@ -8,6 +11,8 @@ import '../../../data/models/parking_photo.dart';
 import '../../../data/models/parking_spot.dart';
 import '../../../data/models/review.dart';
 import '../../../data/repositories/driver_repository.dart';
+import '../../../data/repositories/review_repository.dart';
+import '../../widgets/content_moderation_menu.dart';
 import '../../widgets/widgets.dart';
 import 'booking_dialog.dart';
 
@@ -26,16 +31,55 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
   late Future<SpotWithOwner> _detailsFuture;
 
   int _currentPhotoIndex = 0;
+  Timer? _availabilityTimer;
 
   @override
   void initState() {
     super.initState();
     _photosFuture = DriverRepository.fetchSpotPhotos(widget.spot.id);
-    _reviewsFuture = DriverRepository.fetchSpotReviews(widget.spot.id);
+    _reviewsFuture = ReviewRepository.fetchSpotReviews(widget.spot.id);
     _detailsFuture = DriverRepository.fetchSpotDetails(widget.spot.id);
+    _scheduleAvailabilityRefresh();
 
     // Save to local recently viewed history
     DriverRepository.saveRecentlyViewedSpot(widget.spot.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant SpotDetailsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.spot.id != widget.spot.id) {
+      _photosFuture = DriverRepository.fetchSpotPhotos(widget.spot.id);
+      _reviewsFuture = ReviewRepository.fetchSpotReviews(widget.spot.id);
+      _detailsFuture = DriverRepository.fetchSpotDetails(widget.spot.id);
+      _scheduleAvailabilityRefresh();
+    }
+    if (oldWidget.spot.availableTo != widget.spot.availableTo ||
+        oldWidget.spot.availableEndDate != widget.spot.availableEndDate ||
+        oldWidget.spot.availableHoursEnd != widget.spot.availableHoursEnd) {
+      _scheduleAvailabilityRefresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    _availabilityTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleAvailabilityRefresh() {
+    _availabilityTimer?.cancel();
+    final end = widget.spot.effectiveAvailableTo;
+    if (end == null || !end.isAfter(DateTime.now().toUtc())) return;
+    _availabilityTimer = Timer(end.difference(DateTime.now().toUtc()), () {
+      if (mounted) setState(() => _availabilityTimer = null);
+    });
+  }
+
+  void _refreshReviews() {
+    setState(() {
+      _reviewsFuture = ReviewRepository.fetchSpotReviews(widget.spot.id);
+    });
   }
 
   Future<void> _openGoogleMaps(String? mapsUrl) async {
@@ -61,7 +105,10 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
     }
 
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -90,6 +137,13 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(spot.title),
+        actions: [
+          ContentModerationMenu(
+            targetUserId: spot.ownerId,
+            spotId: spot.id,
+            onBlocked: () => Navigator.of(context).pop(true),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -104,21 +158,27 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                 if (photos.isEmpty) {
                   return Container(
                     height: 220,
-                    color: isDark ? AppColors.deepBlue : AppColors.surfaceBorderLight,
+                    color: isDark
+                        ? AppColors.deepBlue
+                        : AppColors.surfaceBorderLight,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.local_parking_rounded,
                           size: 64,
-                          color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                          color: isDark
+                              ? AppColors.neonLime
+                              : AppColors.accentLight,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'No photos uploaded for this listing',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                       ],
@@ -157,7 +217,9 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                               height: 8,
                               decoration: BoxDecoration(
                                 color: _currentPhotoIndex == idx
-                                    ? (isDark ? AppColors.neonLime : AppColors.accentLight)
+                                    ? (isDark
+                                          ? AppColors.neonLime
+                                          : AppColors.accentLight)
                                     : Colors.white54,
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -183,16 +245,23 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                       Expanded(
                         child: Text(
                           spot.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                            color: isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimaryLight,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.success.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(8),
@@ -200,11 +269,19 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.verified, size: 12, color: AppColors.success),
+                            Icon(
+                              Icons.verified,
+                              size: 12,
+                              color: AppColors.success,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'VERIFIED',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
                             ),
                           ],
                         ),
@@ -216,14 +293,22 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                   // Area & Address
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined, size: 18, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: isDark
+                            ? AppColors.neonLime
+                            : AppColors.accentLight,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           '${spot.address}, ${spot.area}, ${spot.district}',
                           style: TextStyle(
                             fontSize: 14,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                       ),
@@ -247,23 +332,73 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Rental Rates',
+                          'Rental Rates & Availability Schedule',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                            color: isDark
+                                ? AppColors.neonLime
+                                : AppColors.accentLight,
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        Wrap(
+                          alignment: WrapAlignment.spaceAround,
+                          spacing: 16,
+                          runSpacing: 12,
                           children: [
                             if (spot.hourlyPrice != null)
-                              _buildRateTile('Hourly Rate', Formatters.formatCurrency(spot.hourlyPrice!), isDark),
+                              SizedBox(
+                                width: 90,
+                                child: _buildRateTile(
+                                  'Hourly Rate',
+                                  Formatters.formatCurrency(spot.hourlyPrice!),
+                                  isDark,
+                                ),
+                              ),
                             if (spot.dailyPrice != null)
-                              _buildRateTile('Daily Rate', Formatters.formatCurrency(spot.dailyPrice!), isDark),
+                              SizedBox(
+                                width: 90,
+                                child: _buildRateTile(
+                                  'Daily Rate',
+                                  Formatters.formatCurrency(spot.dailyPrice!),
+                                  isDark,
+                                ),
+                              ),
                             if (spot.monthlyPrice != null)
-                              _buildRateTile('Monthly Rate', Formatters.formatCurrency(spot.monthlyPrice!), isDark),
+                              SizedBox(
+                                width: 90,
+                                child: _buildRateTile(
+                                  'Monthly Rate',
+                                  Formatters.formatCurrency(spot.monthlyPrice!),
+                                  isDark,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const Divider(height: 20),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.date_range_rounded,
+                              size: 18,
+                              color: isDark
+                                  ? AppColors.neonLime
+                                  : AppColors.accentLight,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Available Schedule: ${DateTimeUtils.formatAvailabilitySchedule(availableFrom: spot.effectiveAvailableFrom, availableTo: spot.effectiveAvailableTo, availableHoursStart: spot.availableHoursStart, availableHoursEnd: spot.availableHoursEnd)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -279,12 +414,18 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark ? AppColors.neonLime : AppColors.accentLight).withValues(alpha: 0.15),
+                            color:
+                                (isDark
+                                        ? AppColors.neonLime
+                                        : AppColors.accentLight)
+                                    .withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.payments_outlined,
-                            color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                            color: isDark
+                                ? AppColors.neonLime
+                                : AppColors.accentLight,
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -296,7 +437,10 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                                 spot.advanceRequirementPercentage > 0
                                     ? '${spot.advanceRequirementPercentage.toStringAsFixed(0)}% Advance Required'
                                     : 'No Advance Required',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -305,8 +449,12 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                                     : 'Pay full amount when parking.',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                  color: isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondaryLight,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -320,36 +468,72 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                   ParkCard(
                     padding: const EdgeInsets.all(16),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Allowed Vehicles',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Allowed Vehicles',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondaryLight,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                if (spot.vehicleTypes.contains('car')) ...[
-                                  Icon(Icons.directions_car, size: 20, color: isDark ? AppColors.neonLime : AppColors.accentLight),
-                                  const SizedBox(width: 4),
-                                  const Text('Car', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  const SizedBox(width: 12),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  if (spot.vehicleTypes.contains('car'))
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.directions_car,
+                                          size: 20,
+                                          color: isDark
+                                              ? AppColors.neonLime
+                                              : AppColors.accentLight,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'Car',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  if (spot.vehicleTypes.contains('bike'))
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.two_wheeler,
+                                          size: 20,
+                                          color: isDark
+                                              ? AppColors.neonLime
+                                              : AppColors.accentLight,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'Motorbike',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
-                                if (spot.vehicleTypes.contains('bike')) ...[
-                                  Icon(Icons.two_wheeler, size: 20, color: isDark ? AppColors.neonLime : AppColors.accentLight),
-                                  const SizedBox(width: 4),
-                                  const Text('Motorbike', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ],
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -357,13 +541,20 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                               'Capacity',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               '${spot.capacity} Spot${spot.capacity > 1 ? 's' : ''}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                           ],
                         ),
@@ -379,14 +570,18 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        color: isDark
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimaryLight,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: spot.facilities.map((f) => _buildFacilityBadge(f, isDark)).toList(),
+                      children: spot.facilities
+                          .map((f) => _buildFacilityBadge(f, isDark))
+                          .toList(),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -402,12 +597,18 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: isDark ? AppColors.neonLime : AppColors.accentLight,
+                              backgroundColor: isDark
+                                  ? AppColors.neonLime
+                                  : AppColors.accentLight,
                               child: Text(
-                                owner?.fullName.isNotEmpty == true ? owner!.fullName[0].toUpperCase() : 'H',
+                                owner?.fullName.isNotEmpty == true
+                                    ? owner!.fullName[0].toUpperCase()
+                                    : 'H',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? AppColors.midnightNavy : Colors.white,
+                                  color: isDark
+                                      ? AppColors.midnightNavy
+                                      : Colors.white,
                                 ),
                               ),
                             ),
@@ -418,21 +619,56 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                                 children: [
                                   Text(
                                     owner?.fullName ?? 'Parking Space Host',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    spot.isContactVisible && spot.contactPhone != null
+                                    spot.isContactVisible &&
+                                            spot.contactPhone != null
                                         ? 'Phone: ${spot.contactPhone}'
                                         : 'Contact available upon booking confirmation',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                      color: isDark
+                                          ? AppColors.textSecondaryDark
+                                          : AppColors.textSecondaryLight,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            if (spot.isContactVisible &&
+                                spot.contactPhone != null &&
+                                spot.contactPhone!.isNotEmpty)
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.call, size: 16),
+                                label: const Text('Call'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  final cleanPhone = spot.contactPhone!
+                                      .replaceAll(RegExp(r'[^\d+]'), '');
+                                  final uri = Uri.parse('tel:$cleanPhone');
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                              ),
                           ],
                         ),
                       );
@@ -442,11 +678,13 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
 
                   // Genuine Reviews Section
                   Text(
-                    'Renter Reviews',
+                    'Spot Ratings & Public Comments',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimaryLight,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -455,90 +693,186 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
                     future: _reviewsFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const LoadingIndicator(message: 'Loading reviews...');
-                      }
-
-                      final reviews = snapshot.data ?? [];
-
-                      if (reviews.isEmpty) {
-                        return const EmptyStateWidget(
-                          icon: Icons.rate_review_outlined,
-                          title: 'No Reviews Yet',
-                          description: 'This parking spot has not received any reviews from verified renters yet.',
+                        return const LoadingIndicator(
+                          message: 'Loading reviews...',
                         );
                       }
 
-                      return ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: reviews.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final rev = reviews[index];
-                          return ParkCard(
+                      if (snapshot.hasError) {
+                        return Column(
+                          children: [
+                            Text(
+                              'Could not load public reviews: ${snapshot.error}',
+                              style: const TextStyle(color: AppColors.error),
+                            ),
+                            TextButton.icon(
+                              onPressed: _refreshReviews,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Try again'),
+                            ),
+                          ],
+                        );
+                      }
+
+                      final reviews = snapshot.data ?? [];
+                      final averageRating = reviews.isEmpty
+                          ? 0.0
+                          : reviews.fold<int>(
+                                  0,
+                                  (total, review) => total + review.rating,
+                                ) /
+                                reviews.length;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ParkCard(
                             padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: List.generate(
-                                        5,
-                                        (i) => Icon(
-                                          i < rev.rating ? Icons.star_rounded : Icons.star_border_rounded,
-                                          size: 16,
-                                          color: AppColors.warning,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      DateTimeUtils.formatBdDate(rev.createdAt),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
-                                      ),
-                                    ),
-                                  ],
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: AppColors.warning,
+                                  size: 22,
                                 ),
-                                if (rev.reviewText != null && rev.reviewText!.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    rev.reviewText!,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    reviews.isEmpty
+                                        ? 'No ratings yet'
+                                        : '${averageRating.toStringAsFixed(1)} / 5 (${reviews.length} ${reviews.length == 1 ? 'review' : 'reviews'})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
                                   ),
-                                ],
+                                ),
                               ],
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 10),
+                          if (reviews.isEmpty)
+                            const EmptyStateWidget(
+                              icon: Icons.rate_review_outlined,
+                              title: 'No Reviews Yet',
+                              description: 'This parking spot has not received any public feedback yet.',
+                            )
+                          else
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: reviews.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final rev = reviews[index];
+                                return ParkCard(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              rev.reviewerName ??
+                                                  'ParkLagbee User',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                          Row(
+                                            children: List.generate(
+                                              5,
+                                              (i) => Icon(
+                                                i < rev.rating
+                                                    ? Icons.star_rounded
+                                                    : Icons.star_border_rounded,
+                                                size: 14,
+                                                color: AppColors.warning,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            DateTimeUtils.formatBdDate(
+                                              rev.createdAt,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark
+                                                  ? AppColors.textMutedDark
+                                                  : AppColors.textMutedLight,
+                                            ),
+                                          ),
+                                          ContentModerationMenu(
+                                            targetUserId: rev.reviewerId,
+                                            spotId: rev.spotId,
+                                            reviewId: rev.id,
+                                            isReview: true,
+                                            onBlocked: _refreshReviews,
+                                          ),
+                                        ],
+                                      ),
+                                      if (rev.reviewText != null &&
+                                          rev.reviewText!.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          rev.reviewText!,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? AppColors.textSecondaryDark
+                                                : AppColors.textSecondaryLight,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
                       );
                     },
                   ),
                   const SizedBox(height: 28),
 
                   ParkButton(
-                    text: 'Book Parking Spot',
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final booking = await showDialog<Booking>(
-                        context: context,
-                        builder: (context) => BookingDialog(spot: spot),
-                      );
+                    text: spot.isExpired
+                        ? 'Availability Expired'
+                        : 'Book Parking Spot',
+                    onPressed: spot.isExpired
+                        ? null
+                        : () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final booking = await showDialog<Booking>(
+                              context: context,
+                              builder: (context) => BookingDialog(spot: spot),
+                            );
 
-                      if (booking == null) return;
+                            if (booking == null) return;
 
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Booking request created! Ref: ${booking.bookingReference}'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                    },
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Booking request created! Ref: ${booking.bookingReference}',
+                                ),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          },
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -555,6 +889,8 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
       children: [
         Text(
           price,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -564,9 +900,13 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
         const SizedBox(height: 2),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11,
-            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondaryLight,
           ),
         ),
       ],
@@ -605,14 +945,25 @@ class _SpotDetailsScreenState extends State<SpotDetailsScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppColors.deepBlue : AppColors.surfaceBorderLight,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? AppColors.surfaceBorderDark : AppColors.surfaceBorderLight),
+        border: Border.all(
+          color: isDark
+              ? AppColors.surfaceBorderDark
+              : AppColors.surfaceBorderLight,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+          Icon(
+            icon,
+            size: 14,
+            color: isDark ? AppColors.neonLime : AppColors.accentLight,
+          ),
           const SizedBox(width: 6),
-          Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(
+            name,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

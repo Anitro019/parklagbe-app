@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../data/repositories/notification_repository.dart';
 import '../../../widgets/widgets.dart';
 import '../../admin/admin_dashboard_screen.dart';
+import '../../legal/legal_docs.dart';
 import '../../notifications/notifications_screen.dart';
 import '../../profile/edit_profile_screen.dart';
 import '../../support/submit_complaint_screen.dart';
@@ -37,7 +39,8 @@ class ProfileTab extends StatelessWidget {
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => NotificationsScreen(profile: profile),
+                          builder: (context) =>
+                              NotificationsScreen(profile: profile),
                         ),
                       );
                     },
@@ -78,14 +81,29 @@ class ProfileTab extends StatelessWidget {
                 showGlowBorder: true,
                 padding: EdgeInsets.zero,
                 child: ListTile(
-                  leading: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.error),
-                  title: const Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.error)),
-                  subtitle: const Text('Spot Moderation, Complaints, Users, Audit Logs'),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.error),
+                  leading: const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    color: AppColors.error,
+                  ),
+                  title: const Text(
+                    'Admin Console',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Spot Moderation, Complaints, Users, Audit Logs',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.error,
+                  ),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => AdminDashboardScreen(adminProfile: profile),
+                        builder: (context) =>
+                            AdminDashboardScreen(adminProfile: profile),
                       ),
                     );
                   },
@@ -101,15 +119,23 @@ class ProfileTab extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 34,
-                    backgroundColor: isDark ? AppColors.neonLime : AppColors.accentLight,
-                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                    backgroundColor: isDark
+                        ? AppColors.neonLime
+                        : AppColors.accentLight,
+                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? NetworkImage(avatarUrl)
+                        : null,
                     child: avatarUrl == null || avatarUrl.isEmpty
                         ? Text(
-                            profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'P',
+                            profile.fullName.isNotEmpty
+                                ? profile.fullName[0].toUpperCase()
+                                : 'P',
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.midnightNavy : Colors.white,
+                              color: isDark
+                                  ? AppColors.midnightNavy
+                                  : Colors.white,
                             ),
                           )
                         : null,
@@ -124,7 +150,9 @@ class ProfileTab extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                            color: isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimaryLight,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -132,24 +160,39 @@ class ProfileTab extends StatelessWidget {
                           profile.phone ?? 'No phone added',
                           style: TextStyle(
                             fontSize: 14,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: (isDark ? AppColors.neonLime : AppColors.accentLight).withValues(alpha: 0.2),
+                            color:
+                                (isDark
+                                        ? AppColors.neonLime
+                                        : AppColors.accentLight)
+                                    .withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             profile.isAdmin
                                 ? 'ADMINISTRATOR'
-                                : (profile.accountType == 'host' ? 'SPOT OWNER' : 'VEHICLE OWNER'),
+                                : (profile.accountType == 'host'
+                                      ? 'SPOT OWNER'
+                                      : 'VEHICLE OWNER'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: profile.isAdmin ? AppColors.error : (isDark ? AppColors.neonLime : AppColors.accentLight),
+                              color: profile.isAdmin
+                                  ? AppColors.error
+                                  : (isDark
+                                        ? AppColors.neonLime
+                                        : AppColors.accentLight),
                             ),
                           ),
                         ),
@@ -174,7 +217,8 @@ class ProfileTab extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => EditProfileScreen(profile: profile),
+                          builder: (context) =>
+                              EditProfileScreen(profile: profile),
                         ),
                       );
                     },
@@ -188,7 +232,8 @@ class ProfileTab extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => NotificationsScreen(profile: profile),
+                          builder: (context) =>
+                              NotificationsScreen(profile: profile),
                         ),
                       );
                     },
@@ -197,14 +242,93 @@ class ProfileTab extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.help_outline_rounded),
                     title: const Text('Help & Report Issue'),
-                    subtitle: const Text('Submit complaints or payment reports'),
+                    subtitle: const Text(
+                      'Submit complaints or payment reports',
+                    ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => SubmitComplaintScreen(profile: profile),
+                          builder: (context) =>
+                              SubmitComplaintScreen(profile: profile),
                         ),
                       );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('Privacy Policy'),
+                    subtitle: const Text('Data collection & storage policies'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => LegalDocs.openPrivacyPolicy(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title: const Text('Terms of Service'),
+                    subtitle: const Text('Platform terms & rules'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => LegalDocs.openTermsOfService(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_forever_outlined,
+                      color: AppColors.error,
+                    ),
+                    title: const Text(
+                      'Delete My Account',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Permanently delete account, listings & history',
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.error,
+                    ),
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete Your Account?'),
+                          content: const Text(
+                            'Your profile, NID and vehicle documents, uploaded spot photos, parking listings, and booking history will be permanently deleted. This action cannot be undone.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.error,
+                              ),
+                              child: const Text('Permanently Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        try {
+                          await AuthService.deleteAccount();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error deleting account: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      }
                     },
                   ),
                 ],

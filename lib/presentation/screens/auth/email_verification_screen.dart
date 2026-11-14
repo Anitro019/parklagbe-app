@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/email_service.dart';
 import '../../widgets/widgets.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
-  const EmailVerificationScreen({super.key});
+  final String? email;
+
+  const EmailVerificationScreen({super.key, this.email});
 
   @override
   State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
@@ -16,12 +19,24 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   bool _isResending = false;
   int _cooldownSeconds = 0;
   Timer? _timer;
+  StreamSubscription<AuthState>? _authSubscription;
   String? _errorMessage;
   String? _successMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _authSubscription = AuthService.authStateChanges.listen((_) {
+      if (mounted && AuthService.isEmailVerified) {
+        Navigator.of(context).maybePop();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
@@ -41,8 +56,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Future<void> _handleResendEmail() async {
     if (_cooldownSeconds > 0 || _isResending) return;
 
-    final user = AuthService.currentUser;
-    if (user?.email == null) return;
+    final email = widget.email ?? AuthService.currentUser?.email;
+    if (email == null || email.isEmpty) {
+      setState(() => _errorMessage = 'No email address is available to verify.');
+      return;
+    }
 
     setState(() {
       _isResending = true;
@@ -51,11 +69,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
 
     try {
-      await EmailService.sendVerificationEmail(user!.email!);
+      await EmailService.sendVerificationEmail(email);
       if (mounted) {
         setState(() {
           _isResending = false;
-          _successMessage = 'Verification link sent to ${user.email}';
+          _successMessage = 'Verification link sent to $email';
         });
         _startCooldown();
       }
@@ -72,7 +90,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final userEmail = AuthService.currentUser?.email ?? 'your email address';
+    final userEmail = widget.email ?? AuthService.currentUser?.email ?? 'your email address';
 
     return Scaffold(
       appBar: AppBar(

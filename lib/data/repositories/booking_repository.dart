@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../core/services/supabase_service.dart';
 import '../models/booking.dart';
 import '../models/parking_spot.dart';
@@ -10,11 +11,7 @@ class BookingWithCustomer {
   final UserProfile? customerProfile;
   final ParkingSpot? spot;
 
-  BookingWithCustomer({
-    required this.booking,
-    this.customerProfile,
-    this.spot,
-  });
+  BookingWithCustomer({required this.booking, this.customerProfile, this.spot});
 }
 
 class BookingRepository {
@@ -30,15 +27,26 @@ class BookingRepository {
     required DateTime endTime,
     String rentalType = 'hourly',
   }) async {
-    final response = await _client.rpc('create_booking', params: {
-      'p_spot_id': spotId,
-      'p_vehicle_type': vehicleType,
-      'p_vehicle_number': vehicleNumber,
-      'p_booking_date': bookingDate.toIso8601String().split('T').first,
-      'p_start_time': startTime.toUtc().toIso8601String(),
-      'p_end_time': endTime.toUtc().toIso8601String(),
-      'p_rental_type': rentalType,
-    });
+    final now = DateTime.now().toUtc();
+    if (!endTime.toUtc().isAfter(now)) {
+      throw ArgumentError('Booking end time must be in the future.');
+    }
+    if (!endTime.isAfter(startTime)) {
+      throw ArgumentError('Booking end time must be after start time.');
+    }
+
+    final response = await _client.rpc(
+      'create_booking',
+      params: {
+        'p_spot_id': spotId,
+        'p_vehicle_type': vehicleType,
+        'p_vehicle_number': vehicleNumber,
+        'p_booking_date': bookingDate.toIso8601String().split('T').first,
+        'p_start_time': startTime.toUtc().toIso8601String(),
+        'p_end_time': endTime.toUtc().toIso8601String(),
+        'p_rental_type': rentalType,
+      },
+    );
 
     return Booking.fromJson(response as Map<String, dynamic>);
   }
@@ -49,11 +57,14 @@ class BookingRepository {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
-    final response = await _client.rpc('check_spot_availability', params: {
-      'p_spot_id': spotId,
-      'p_start_time': startTime.toUtc().toIso8601String(),
-      'p_end_time': endTime.toUtc().toIso8601String(),
-    });
+    final response = await _client.rpc(
+      'check_spot_availability',
+      params: {
+        'p_spot_id': spotId,
+        'p_start_time': startTime.toUtc().toIso8601String(),
+        'p_end_time': endTime.toUtc().toIso8601String(),
+      },
+    );
 
     return response as bool;
   }
@@ -72,7 +83,9 @@ class BookingRepository {
   }
 
   /// Fetch booking requests for spots owned by host with customer details
-  static Future<List<BookingWithCustomer>> fetchHostBookings(String ownerId) async {
+  static Future<List<BookingWithCustomer>> fetchHostBookings(
+    String ownerId,
+  ) async {
     // 1. Fetch spots owned by host
     final spotsRes = await _client
         .from('parking_spots')
@@ -101,7 +114,7 @@ class BookingRepository {
       UserProfile? customer;
       try {
         final custRes = await _client
-            .from('profiles')
+            .from('public_profiles')
             .select()
             .eq('id', booking.customerId)
             .maybeSingle();
@@ -113,7 +126,9 @@ class BookingRepository {
         debugPrint('Error fetching customer profile for booking: $e');
       }
 
-      result.add(BookingWithCustomer(booking: booking, customerProfile: customer));
+      result.add(
+        BookingWithCustomer(booking: booking, customerProfile: customer),
+      );
     }
 
     return result;
@@ -121,37 +136,43 @@ class BookingRepository {
 
   /// Approve booking request (Spot owner)
   static Future<Booking> approveBooking(String bookingId) async {
-    final response = await _client.rpc('approve_booking', params: {
-      'p_booking_id': bookingId,
-    });
+    final response = await _client.rpc(
+      'approve_booking',
+      params: {'p_booking_id': bookingId},
+    );
 
     return Booking.fromJson(response as Map<String, dynamic>);
   }
 
   /// Reject booking request (Spot owner)
-  static Future<Booking> rejectBooking(String bookingId, {String? reason}) async {
-    final response = await _client.rpc('reject_booking', params: {
-      'p_booking_id': bookingId,
-      'p_reason': reason,
-    });
+  static Future<Booking> rejectBooking(
+    String bookingId, {
+    String? reason,
+  }) async {
+    final response = await _client.rpc(
+      'reject_booking',
+      params: {'p_booking_id': bookingId, 'p_reason': reason},
+    );
 
     return Booking.fromJson(response as Map<String, dynamic>);
   }
 
   /// Complete booking (Spot owner or Admin)
   static Future<Booking> completeBooking(String bookingId) async {
-    final response = await _client.rpc('complete_booking', params: {
-      'p_booking_id': bookingId,
-    });
+    final response = await _client.rpc(
+      'complete_booking',
+      params: {'p_booking_id': bookingId},
+    );
 
     return Booking.fromJson(response as Map<String, dynamic>);
   }
 
   /// Cancel booking (Customer or Spot Owner)
   static Future<Booking> cancelBooking(String bookingId) async {
-    final response = await _client.rpc('cancel_booking', params: {
-      'p_booking_id': bookingId,
-    });
+    final response = await _client.rpc(
+      'cancel_booking',
+      params: {'p_booking_id': bookingId},
+    );
 
     return Booking.fromJson(response as Map<String, dynamic>);
   }

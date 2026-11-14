@@ -1,0 +1,2 @@
+[functions.send-admin-report-notification]
+verify_jwt = true

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/services/supabase_service.dart';
+import '../models/booking.dart';
 import '../models/parking_photo.dart';
 import '../models/parking_spot.dart';
 
@@ -111,6 +112,8 @@ class SpotRepository {
     required String availableHoursStart,
     required String availableHoursEnd,
     required List<String> availableDays,
+    DateTime? availableStartDate,
+    DateTime? availableEndDate,
     required String? rules,
     required List<String> facilities,
     required double advanceRequirementPercentage,
@@ -136,6 +139,8 @@ class SpotRepository {
       'available_hours_start': availableHoursStart,
       'available_hours_end': availableHoursEnd,
       'available_days': availableDays,
+      'available_start_date': availableStartDate?.toIso8601String().split('T')[0],
+      'available_end_date': availableEndDate?.toIso8601String().split('T')[0],
       'rules': rules,
       'facilities': facilities,
       'advance_requirement_percentage': advanceRequirementPercentage,
@@ -209,6 +214,8 @@ class SpotRepository {
     required String availableHoursStart,
     required String availableHoursEnd,
     required List<String> availableDays,
+    DateTime? availableStartDate,
+    DateTime? availableEndDate,
     required String? rules,
     required List<String> facilities,
     required double advanceRequirementPercentage,
@@ -241,6 +248,8 @@ class SpotRepository {
       'available_hours_start': availableHoursStart,
       'available_hours_end': availableHoursEnd,
       'available_days': availableDays,
+      'available_start_date': availableStartDate?.toIso8601String().split('T')[0],
+      'available_end_date': availableEndDate?.toIso8601String().split('T')[0],
       'rules': rules,
       'facilities': facilities,
       'advance_requirement_percentage': advanceRequirementPercentage,
@@ -279,6 +288,26 @@ class SpotRepository {
         .update({'is_active': isActive, 'updated_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', spotId)
         .eq('owner_id', ownerId);
+  }
+
+  /// Fetch active bookings for a spot on a specific date to compute dynamic available hours
+  static Future<List<Booking>> fetchActiveBookingsForSpotDate(String spotId, DateTime date) async {
+    final dateStr = date.toIso8601String().split('T')[0];
+    try {
+      final response = await _client
+          .from('bookings')
+          .select()
+          .eq('spot_id', spotId)
+          .eq('booking_date', dateStr)
+          .inFilter('booking_status', ['pending', 'confirmed', 'active']);
+
+      return (response as List)
+          .map((json) => Booking.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching active bookings for spot date: $e');
+      return [];
+    }
   }
 
   /// Check if spot can be deleted (No pending/confirmed/active bookings)

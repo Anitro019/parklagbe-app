@@ -44,6 +44,18 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    IF p_end_time <= p_start_time OR p_end_time <= NOW() THEN
+        RETURN FALSE;
+    END IF;
+
+    IF v_spot.available_from IS NOT NULL AND p_start_time < v_spot.available_from THEN
+        RETURN FALSE;
+    END IF;
+
+    IF v_spot.available_to IS NOT NULL AND p_end_time > v_spot.available_to THEN
+        RETURN FALSE;
+    END IF;
+
     -- Local Bangladesh Time conversions for operating hours comparison
     v_start_time_local := (p_start_time AT TIME ZONE 'Asia/Dhaka')::TIME;
     v_end_time_local := (p_end_time AT TIME ZONE 'Asia/Dhaka')::TIME;
@@ -117,6 +129,10 @@ BEGIN
         RAISE EXCEPTION 'Invalid Time Window: End time must be strictly after start time.';
     END IF;
 
+    IF p_end_time <= NOW() THEN
+        RAISE EXCEPTION 'Expired Availability: Booking end time must be in the future.';
+    END IF;
+
     -- 1. Lock parking spot row to prevent race conditions (Pessimistic locking)
     SELECT * INTO v_spot
     FROM public.parking_spots
@@ -129,6 +145,14 @@ BEGIN
 
     IF NOT v_spot.is_active OR v_spot.approval_status <> 'approved' THEN
         RAISE EXCEPTION 'Parking spot is currently unavailable for bookings.';
+    END IF;
+
+    IF v_spot.available_from IS NOT NULL AND p_start_time < v_spot.available_from THEN
+        RAISE EXCEPTION 'Outside Availability: Booking cannot start before the listing is available.';
+    END IF;
+
+    IF v_spot.available_to IS NOT NULL AND p_end_time > v_spot.available_to THEN
+        RAISE EXCEPTION 'Expired Availability: Booking must end before the listing expires.';
     END IF;
 
     -- 2. Validate operational days & hours

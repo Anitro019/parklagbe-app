@@ -1,10 +1,16 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../app/theme/app_colors.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/utils/permission_disclosures.dart';
 import '../../widgets/widgets.dart';
+import 'email_verification_screen.dart';
+import '../legal/legal_docs.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,7 +27,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _accountType = 'driver'; // 'driver' (Vehicle Owner) | 'host' (Parking Spot Owner)
+  String _accountType =
+      'driver'; // 'driver' (Vehicle Owner) | 'host' (Parking Spot Owner)
   File? _avatarFile;
   Uint8List? _avatarBytes;
 
@@ -39,6 +46,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _pickProfilePhoto() async {
+    if (!await PermissionDisclosures.showMediaDisclosure(context)) return;
+
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
@@ -66,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await AuthService.signUpWithEmail(
+      final response = await AuthService.signUpWithEmail(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         fullName: _nameController.text.trim(),
@@ -77,20 +86,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (mounted) {
+        setState(() => _isLoading = false);
+        final emailAddress = _emailController.text.trim();
+        if (response.user?.emailConfirmedAt == null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => EmailVerificationScreen(email: emailAddress),
+            ),
+          );
+        } else {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account created and email verified.'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.message;
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account registered! Please check your email for the verification link.'),
-            backgroundColor: AppColors.success,
+          SnackBar(
+            content: Text('Signup Error: ${e.message}'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
           ),
         );
-        Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
+        final cleanMsg = e.toString().replaceAll('Exception:', '').trim();
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+          _errorMessage = cleanMsg;
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Signup Failed: $cleanMsg'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
@@ -107,9 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
+      appBar: AppBar(title: const Text('Create Account')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
@@ -124,13 +166,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       CircleAvatar(
                         radius: 44,
-                        backgroundColor: isDark ? AppColors.deepBlue : AppColors.surfaceBorderLight,
+                        backgroundColor: isDark
+                            ? AppColors.deepBlue
+                            : AppColors.surfaceBorderLight,
                         backgroundImage: avatarImage,
                         child: avatarImage == null
                             ? Icon(
                                 Icons.person,
                                 size: 48,
-                                color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                                color: isDark
+                                    ? AppColors.neonLime
+                                    : AppColors.accentLight,
                               )
                             : null,
                       ),
@@ -141,11 +187,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onTap: _pickProfilePhoto,
                           child: CircleAvatar(
                             radius: 16,
-                            backgroundColor: isDark ? AppColors.neonLime : AppColors.accentLight,
+                            backgroundColor: isDark
+                                ? AppColors.neonLime
+                                : AppColors.accentLight,
                             child: Icon(
                               Icons.camera_alt,
                               size: 16,
-                              color: isDark ? AppColors.midnightNavy : Colors.white,
+                              color: isDark
+                                  ? AppColors.midnightNavy
+                                  : Colors.white,
                             ),
                           ),
                         ),
@@ -159,7 +209,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -172,15 +224,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onTap: () => setState(() => _accountType = 'driver'),
                         child: ParkCard(
                           showGlowBorder: _accountType == 'driver',
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 10,
+                          ),
                           child: Column(
                             children: [
                               Icon(
                                 Icons.directions_car_rounded,
                                 size: 28,
                                 color: _accountType == 'driver'
-                                    ? (isDark ? AppColors.neonLime : AppColors.accentLight)
-                                    : (isDark ? AppColors.textMutedDark : AppColors.textMutedLight),
+                                    ? (isDark
+                                          ? AppColors.neonLime
+                                          : AppColors.accentLight)
+                                    : (isDark
+                                          ? AppColors.textMutedDark
+                                          : AppColors.textMutedLight),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -188,7 +247,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                                  color: isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimaryLight,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -196,7 +257,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 'Find & book spots',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                  color: isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondaryLight,
                                 ),
                               ),
                             ],
@@ -210,15 +273,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onTap: () => setState(() => _accountType = 'host'),
                         child: ParkCard(
                           showGlowBorder: _accountType == 'host',
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 10,
+                          ),
                           child: Column(
                             children: [
                               Icon(
                                 Icons.garage_rounded,
                                 size: 28,
                                 color: _accountType == 'host'
-                                    ? (isDark ? AppColors.neonLime : AppColors.accentLight)
-                                    : (isDark ? AppColors.textMutedDark : AppColors.textMutedLight),
+                                    ? (isDark
+                                          ? AppColors.neonLime
+                                          : AppColors.accentLight)
+                                    : (isDark
+                                          ? AppColors.textMutedDark
+                                          : AppColors.textMutedLight),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -226,7 +296,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                                  color: isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimaryLight,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -234,7 +306,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 'Rent out space & earn',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                  color: isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondaryLight,
                                 ),
                               ),
                             ],
@@ -256,7 +330,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: AppColors.error, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -268,7 +345,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   hint: 'e.g. Rahim Uddin',
                   prefixIcon: Icons.person_outline,
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Enter full name';
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Enter full name';
+                    }
                     return null;
                   },
                 ),
@@ -281,7 +360,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Enter email address';
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Enter email address';
+                    }
                     if (!val.contains('@')) return 'Enter a valid email';
                     return null;
                   },
@@ -294,7 +375,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   hint: 'e.g. Road 11, Gulshan 2, Dhaka',
                   prefixIcon: Icons.location_on_outlined,
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Enter address or area';
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Enter address or area';
+                    }
                     return null;
                   },
                 ),
@@ -321,7 +404,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.lock_outline,
                   isPassword: true,
                   validator: (val) {
-                    if (val != _passwordController.text) return 'Passwords do not match';
+                    if (val != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
                     return null;
                   },
                 ),
@@ -333,6 +418,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: _handleRegister,
                 ),
                 const SizedBox(height: 20),
+
+                // Legal Links
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => LegalDocs.openPrivacyPolicy(context),
+                      child: Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          fontSize: 12,
+                          decoration: TextDecoration.underline,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '  •  ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.textMutedDark
+                            : AppColors.textMutedLight,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => LegalDocs.openTermsOfService(context),
+                      child: Text(
+                        'Terms of Service',
+                        style: TextStyle(
+                          fontSize: 12,
+                          decoration: TextDecoration.underline,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
               ],
             ),
           ),

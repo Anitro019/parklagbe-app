@@ -18,12 +18,17 @@ class ParkingSpot {
   final String availableHoursStart;
   final String availableHoursEnd;
   final List<String> availableDays;
+  final DateTime? availableStartDate;
+  final DateTime? availableEndDate;
+  final DateTime? availableFrom;
+  final DateTime? availableTo;
   final String? rules;
   final List<String> facilities;
   final double advanceRequirementPercentage;
   final String? contactPhone;
   final bool isContactVisible;
-  final String approvalStatus; // 'pending' | 'approved' | 'rejected' | 'suspended'
+  final String
+  approvalStatus; // 'pending' | 'approved' | 'rejected' | 'suspended'
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -48,6 +53,10 @@ class ParkingSpot {
     required this.availableHoursStart,
     required this.availableHoursEnd,
     required this.availableDays,
+    this.availableStartDate,
+    this.availableEndDate,
+    this.availableFrom,
+    this.availableTo,
     this.rules,
     required this.facilities,
     required this.advanceRequirementPercentage,
@@ -77,12 +86,26 @@ class ParkingSpot {
       hourlyPrice: (json['hourly_price'] as num?)?.toDouble(),
       dailyPrice: (json['daily_price'] as num?)?.toDouble(),
       monthlyPrice: (json['monthly_price'] as num?)?.toDouble(),
-      availableHoursStart: json['available_hours_start'] as String? ?? '00:00:00',
+      availableHoursStart:
+          json['available_hours_start'] as String? ?? '00:00:00',
       availableHoursEnd: json['available_hours_end'] as String? ?? '23:59:59',
       availableDays: List<String>.from(json['available_days'] ?? []),
+      availableStartDate: json['available_start_date'] != null
+          ? DateTime.tryParse(json['available_start_date'] as String)
+          : null,
+      availableEndDate: json['available_end_date'] != null
+          ? DateTime.tryParse(json['available_end_date'] as String)
+          : null,
+      availableFrom: json['available_from'] != null
+          ? DateTime.tryParse(json['available_from'] as String)
+          : null,
+      availableTo: json['available_to'] != null
+          ? DateTime.tryParse(json['available_to'] as String)
+          : null,
       rules: json['rules'] as String?,
       facilities: List<String>.from(json['facilities'] ?? []),
-      advanceRequirementPercentage: (json['advance_requirement_percentage'] as num?)?.toDouble() ?? 0.0,
+      advanceRequirementPercentage:
+          (json['advance_requirement_percentage'] as num?)?.toDouble() ?? 0.0,
       contactPhone: json['contact_phone'] as String?,
       isContactVisible: json['is_contact_visible'] as bool? ?? true,
       approvalStatus: json['approval_status'] as String? ?? 'pending',
@@ -112,6 +135,10 @@ class ParkingSpot {
       'available_hours_start': availableHoursStart,
       'available_hours_end': availableHoursEnd,
       'available_days': availableDays,
+      'available_start_date': availableStartDate?.toIso8601String().split(
+        'T',
+      )[0],
+      'available_end_date': availableEndDate?.toIso8601String().split('T')[0],
       'rules': rules,
       'facilities': facilities,
       'advance_requirement_percentage': advanceRequirementPercentage,
@@ -123,4 +150,61 @@ class ParkingSpot {
   }
 
   bool get isApproved => approvalStatus == 'approved';
+
+  DateTime? get effectiveAvailableFrom =>
+      availableFrom ??
+      _combineDateAndTime(availableStartDate, availableHoursStart);
+
+  DateTime? get effectiveAvailableTo =>
+      availableTo ?? _combineDateAndTime(availableEndDate, availableHoursEnd);
+
+  /// Availability timestamps use Bangladesh local dates and hours.
+  DateTime? _combineDateAndTime(DateTime? date, String time) {
+    if (date == null) return null;
+    final parts = time.split(':');
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    final second = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+    return DateTime.utc(
+      date.year,
+      date.month,
+      date.day,
+      hour,
+      minute,
+      second,
+    ).subtract(const Duration(hours: 6));
+  }
+
+  /// Check whether the exact availability end date and time has passed.
+  bool get isExpired {
+    final end = effectiveAvailableTo;
+    return end != null && !end.isAfter(DateTime.now().toUtc());
+  }
+
+  /// Check if spot is active and available on a specific target date
+  bool isAvailableOnDate(DateTime date) {
+    if (!isActive || !isApproved || isExpired) return false;
+    final targetDate = DateTime(date.year, date.month, date.day);
+    if (availableStartDate != null &&
+        targetDate.isBefore(
+          DateTime(
+            availableStartDate!.year,
+            availableStartDate!.month,
+            availableStartDate!.day,
+          ),
+        )) {
+      return false;
+    }
+    if (availableEndDate != null &&
+        targetDate.isAfter(
+          DateTime(
+            availableEndDate!.year,
+            availableEndDate!.month,
+            availableEndDate!.day,
+          ),
+        )) {
+      return false;
+    }
+    return true;
+  }
 }

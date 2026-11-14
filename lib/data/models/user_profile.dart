@@ -5,6 +5,10 @@ class UserProfile {
   final String? address;
   final String? avatarUrl;
   final String accountType; // 'driver' | 'host' | 'admin'
+  final bool isVerified;
+  final String? nidNumber;
+  final String? drivingLicenseNumber;
+  final String? verificationDocUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -15,6 +19,10 @@ class UserProfile {
     this.address,
     this.avatarUrl,
     required this.accountType,
+    this.isVerified = false,
+    this.nidNumber,
+    this.drivingLicenseNumber,
+    this.verificationDocUrl,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -27,6 +35,10 @@ class UserProfile {
       address: json['address'] as String?,
       avatarUrl: json['avatar_url'] as String?,
       accountType: json['account_type'] as String? ?? 'driver',
+      isVerified: json['is_verified'] as bool? ?? false,
+      nidNumber: json['nid_number'] as String?,
+      drivingLicenseNumber: json['driving_license_number'] as String?,
+      verificationDocUrl: json['verification_doc_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -40,6 +52,10 @@ class UserProfile {
       'address': address,
       'avatar_url': avatarUrl,
       'account_type': accountType,
+      'is_verified': isVerified,
+      'nid_number': nidNumber,
+      'driving_license_number': drivingLicenseNumber,
+      'verification_doc_url': verificationDocUrl,
     };
   }
 

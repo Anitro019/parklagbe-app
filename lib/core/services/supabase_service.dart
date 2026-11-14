@@ -13,11 +13,6 @@ class SupabaseService {
   static String get supabaseAnonKey =>
       const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: _defaultPublishableKey).trim();
 
-  // NOTE: Auth emails (verification, password reset) are sent by Supabase Auth,
-  // not by this app. Gmail SMTP is configured on the Supabase project
-  // (see tool/configure_supabase_email.py). Never read SMTP credentials here:
-  // anything passed via --dart-define is compiled into the APK.
-
   /// Check if Supabase credentials are placeholder defaults
   static bool get isPlaceholderConfig =>
       supabaseUrl.contains('your-supabase-project') ||

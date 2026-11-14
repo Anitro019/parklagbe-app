@@ -40,4 +40,24 @@ class EmailService {
       rethrow;
     }
   }
+
+  /// Dispatch a report notification through the authenticated Supabase Edge Function.
+  static Future<void> sendAdminReportNotificationEmail({
+    required String complaintId,
+  }) async {
+    try {
+      final response = await SupabaseService.client.functions.invoke(
+        'send-admin-report-notification',
+        body: {'complaintId': complaintId},
+      );
+      if (response.status < 200 || response.status >= 300) {
+        throw StateError(
+          'Report notification service returned status ${response.status}.',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error dispatching report notification: $e');
+      rethrow;
+    }
+  }
 }

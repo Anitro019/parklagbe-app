@@ -78,7 +78,7 @@ The SQL migrations in [`supabase/migrations/`](file:///C:/Users/hp/AndroidStudio
      - `parking_photos`: Storage references and display order for spot imagery.
      - `parking_closed_dates`: Dates when a spot is temporarily unavailable.
      - `bookings`: Booking records with reference IDs (`PKL-YYYYMMDD-XXXX`), status (`pending`, `confirmed`, `active`, `completed`, `cancelled`), vehicle info, start/end timestamps, total cost, and advance payment tracking.
-     - `reviews`: Rating (1-5 stars) and comments left by drivers.
+     - `reviews`: Public two-way ratings (1-5 stars) and comments for both booking participants.
      - `complaints`: User support tickets with status tracking (`pending`, `in_progress`, `resolved`, `dismissed`).
      - `app_notifications`: Real-time user notifications.
      - `admin_audit_logs`: Audit logs for administrative actions.
@@ -106,6 +106,13 @@ The SQL migrations in [`supabase/migrations/`](file:///C:/Users/hp/AndroidStudio
 
 6. **`20261024000006_create_account_deletion_function.sql`**
    - RPC function `delete_user_account()` allowing users to purge their account data securely.
+
+7. **`20261113000001_public_two_way_booking_feedback.sql`**
+   - Enables public feedback from both booking participants after confirmation, with one review per user per booking.
+   - Adds public review reads, target-user ratings, comments, and the spot-owner/vehicle-owner review roles.
+
+8. **`20261113000002_confirmed_completed_review_eligibility.sql`**
+   - Updates the two-way review RPC and INSERT policy to accept confirmed or completed bookings for both participants.
 
 ---
 
@@ -163,6 +170,25 @@ This turns on "Confirm email", sets Gmail as the custom SMTP sender, and allow-l
 - `SMTP_EMAIL`: Gmail address that owns the App Password (can differ from the Supabase account)
 - `SMTP_PASSWORD`: 16-character Google App Password
 - `SMTP_SENDER_NAME`: Sender display name (`ParkLagbee Support`)
+
+### Support Report Email Notifications
+Support-report emails are sent by the authenticated Supabase Edge Function
+[`send-admin-report-notification`](./supabase/functions/send-admin-report-notification/index.ts).
+The Flutter app sends only the saved complaint ID; the function verifies the signed-in user owns that
+complaint and reads the report from Supabase. SMTP credentials are never bundled in the app.
+
+Add `ADMIN_EMAIL` to the private, git-ignored `.env.smtp` file, and set `SMTP_PORT=465` for the
+Edge Function (Supabase Edge Functions block outbound SMTP on port 587). After linking the Supabase
+project, upload the values as Edge Function secrets and deploy:
+
+```bash
+supabase secrets set --env-file .env.smtp
+supabase functions deploy send-admin-report-notification
+```
+
+The function trims `SMTP_EMAIL` and `SMTP_PASSWORD` before authenticating. `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are provided by the Supabase Edge Functions
+runtime; do not add them to the Flutter app to support this notification flow.
 
 ### Local Development Commands
 - **Install Dependencies**:

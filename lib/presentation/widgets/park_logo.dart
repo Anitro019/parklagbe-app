@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../app/theme/app_colors.dart';
 
 class ParkLogoWidget extends StatelessWidget {
   final double size;
@@ -9,10 +8,10 @@ class ParkLogoWidget extends StatelessWidget {
 
   const ParkLogoWidget({
     super.key,
-    this.size = 80.0,
+    this.size = 90.0,
     this.showGlow = true,
-    this.primaryColor = AppColors.neonLime,
-    this.accentColor = AppColors.deepBlue,
+    this.primaryColor = const Color(0xFF00F0FF), // Electric Neon Blue
+    this.accentColor = const Color(0xFF00E676),  // Emerald Green
   });
 
   @override
@@ -22,12 +21,19 @@ class ParkLogoWidget extends StatelessWidget {
       height: size,
       decoration: showGlow
           ? BoxDecoration(
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(size * 0.225),
               boxShadow: [
                 BoxShadow(
-                  color: primaryColor.withValues(alpha: 0.35),
-                  blurRadius: size * 0.3,
-                  spreadRadius: size * 0.05,
+                  color: primaryColor.withValues(alpha: 0.3),
+                  blurRadius: size * 0.25,
+                  spreadRadius: size * 0.02,
+                  offset: Offset(0, size * 0.08),
+                ),
+                BoxShadow(
+                  color: accentColor.withValues(alpha: 0.15),
+                  blurRadius: size * 0.35,
+                  spreadRadius: size * 0.01,
+                  offset: Offset(0, size * 0.12),
                 ),
               ],
             )
@@ -35,8 +41,8 @@ class ParkLogoWidget extends StatelessWidget {
       child: CustomPaint(
         size: Size(size, size),
         painter: _ParkLogoPainter(
-          primaryColor: primaryColor,
-          accentColor: accentColor,
+          neonBlue: primaryColor,
+          emeraldGreen: accentColor,
         ),
       ),
     );
@@ -44,82 +50,184 @@ class ParkLogoWidget extends StatelessWidget {
 }
 
 class _ParkLogoPainter extends CustomPainter {
-  final Color primaryColor;
-  final Color accentColor;
+  final Color neonBlue;
+  final Color emeraldGreen;
 
   _ParkLogoPainter({
-    required this.primaryColor,
-    required this.accentColor,
+    required this.neonBlue,
+    required this.emeraldGreen,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.45);
-    final width = size.width;
-    final height = size.height;
+    final w = size.width;
+    final h = size.height;
+    final cornerRadius = w * 0.225; // iOS 18 / Material 3 Squircle Corner Radius
 
-    // 1. Draw outer glowing pin shield
-    final pinPath = Path();
-    pinPath.moveTo(center.dx, height * 0.95);
-    pinPath.cubicTo(
-      width * 0.1, height * 0.6,
-      width * 0.05, height * 0.1,
-      center.dx, height * 0.1,
+    // 1. Dark Slate Gray Outer Frame (App Icon Container)
+    final bgRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, w, h),
+      Radius.circular(cornerRadius),
     );
+
+    // Dark Slate Gray Gradient (#1E293B -> #0F172A -> #090D16)
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF1E293B), // Dark Slate Light
+          Color(0xFF0F172A), // Dark Slate Base
+          Color(0xFF090D16), // Dark Slate Deep
+        ],
+      ).createShader(bgRRect.outerRect);
+
+    canvas.drawRRect(bgRRect, bgPaint);
+
+    // Subtle Rim Stroke Highlight
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.018
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          neonBlue.withValues(alpha: 0.45),
+          emeraldGreen.withValues(alpha: 0.25),
+          Colors.white.withValues(alpha: 0.05),
+        ],
+      ).createShader(bgRRect.outerRect);
+
+    canvas.drawRRect(bgRRect, rimPaint);
+
+    // 2. Glossy Top Highlight Reflection
+    final glossPath = Path();
+    glossPath.moveTo(0, cornerRadius);
+    glossPath.quadraticBezierTo(w * 0.5, h * 0.12, w, cornerRadius);
+    glossPath.lineTo(w, 0);
+    glossPath.lineTo(0, 0);
+    glossPath.close();
+
+    final glossPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.14),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h * 0.22));
+
+    canvas.drawPath(glossPath, glossPaint);
+
+    // 3. Central Icon Symbol: Location Pin + Capital "P" + Car / Slot Emblem
+    final cx = w * 0.5;
+
+    // Pin Dimensions
+    final pinW = w * 0.54;
+    final pinH = h * 0.65;
+    final pinTop = h * 0.16;
+
+    final pinPath = Path();
+
+    // Location Pin Head + Pointed Tail
+    pinPath.moveTo(cx - pinW * 0.48, pinTop + pinH * 0.35);
+    // Top Arc of Pin
     pinPath.cubicTo(
-      width * 0.95, height * 0.1,
-      width * 0.9, height * 0.6,
-      center.dx, height * 0.95,
+      cx - pinW * 0.48, pinTop - pinH * 0.04,
+      cx + pinW * 0.48, pinTop - pinH * 0.04,
+      cx + pinW * 0.48, pinTop + pinH * 0.35,
+    );
+    // Right curve down to pin tip
+    pinPath.cubicTo(
+      cx + pinW * 0.48, pinTop + pinH * 0.58,
+      cx + pinW * 0.20, pinTop + pinH * 0.85,
+      cx, pinTop + pinH,
+    );
+    // Left curve up to pin head
+    pinPath.cubicTo(
+      cx - pinW * 0.20, pinTop + pinH * 0.85,
+      cx - pinW * 0.48, pinTop + pinH * 0.58,
+      cx - pinW * 0.48, pinTop + pinH * 0.35,
     );
     pinPath.close();
 
-    // Fill pin background with gradient
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            accentColor,
-            AppColors.midnightNavy,
-          ],
-        ).createShader(Rect.fromLTWH(0, 0, width, height))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(pinPath, fillPaint);
-
-    // Pin outer stroke/border
-    final borderPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width * 0.06
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(pinPath, borderPaint);
-
-    // 2. Draw "P" emblem in the center
-    final pPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width * 0.08
-      ..strokeCap = StrokeCap.round;
-
-    final pPath = Path();
-    // Vertical stem of P
-    pPath.moveTo(width * 0.4, height * 0.28);
-    pPath.lineTo(width * 0.4, height * 0.62);
-
-    // Loop of P
-    pPath.moveTo(width * 0.4, height * 0.28);
-    pPath.cubicTo(
-      width * 0.68, height * 0.28,
-      width * 0.68, height * 0.45,
-      width * 0.4, height * 0.45,
+    // 3D Ambient Glow / Shadow under the Pin
+    canvas.drawPath(
+      pinPath.shift(Offset(0, h * 0.03)),
+      Paint()
+        ..color = neonBlue.withValues(alpha: 0.35)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.05),
     );
 
-    canvas.drawPath(pPath, pPaint);
+    // Electric Neon Blue to Emerald Green 3D Gradient Fill
+    final pinFillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          neonBlue,                // Electric Neon Blue (#00F0FF)
+          const Color(0xFF00B0FF), // Vivid Cyan Blue
+          emeraldGreen,            // Emerald Green (#00E676)
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    canvas.drawPath(pinPath, pinFillPaint);
+
+    // 4. Inner Cutout forming the Capital Letter "P" Loop
+    final loopR = pinW * 0.22;
+    final loopCx = cx + pinW * 0.03;
+    final loopCy = pinTop + pinH * 0.31;
+
+    final innerPath = Path();
+    innerPath.addOval(Rect.fromCircle(center: Offset(loopCx, loopCy), radius: loopR));
+
+    final innerPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF0F172A),
+          Color(0xFF1E293B),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    canvas.drawPath(innerPath, innerPaint);
+
+    // 5. Minimalist Car / Parking Slot Symbol inside the "P" Loop
+    final carPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          neonBlue,
+          emeraldGreen,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.028
+      ..strokeCap = StrokeCap.round;
+
+    final carPath = Path();
+    // Sleek minimalist car roof arc
+    carPath.moveTo(loopCx - loopR * 0.5, loopCy + loopR * 0.15);
+    carPath.quadraticBezierTo(loopCx, loopCy - loopR * 0.55, loopCx + loopR * 0.5, loopCy + loopR * 0.15);
+    // Parking slot side brackets
+    carPath.moveTo(loopCx - loopR * 0.55, loopCy + loopR * 0.15);
+    carPath.lineTo(loopCx + loopR * 0.55, loopCy + loopR * 0.15);
+
+    canvas.drawPath(carPath, carPaint);
+
+    // Wheel Accents
+    final wheelPaint = Paint()
+      ..color = emeraldGreen
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(Offset(loopCx - loopR * 0.28, loopCy + loopR * 0.32), w * 0.015, wheelPaint);
+    canvas.drawCircle(Offset(loopCx + loopR * 0.28, loopCy + loopR * 0.32), w * 0.015, wheelPaint);
   }
 
   @override
   bool shouldRepaint(covariant _ParkLogoPainter oldDelegate) =>
-      oldDelegate.primaryColor != primaryColor || oldDelegate.accentColor != accentColor;
+      oldDelegate.neonBlue != neonBlue || oldDelegate.emeraldGreen != emeraldGreen;
 }

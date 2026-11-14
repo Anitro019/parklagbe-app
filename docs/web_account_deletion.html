@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f5ef">
+  <title>ParkLagbee | Account Deletion</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17231f;
+      --muted: #596961;
+      --paper: #f2f5ef;
+      --surface: #ffffff;
+      --line: #d6dfd8;
+      --green: #146b4d;
+      --green-dark: #0e4b37;
+      --red: #a7342d;
+      --gold: #e6b44d;
+      font-family: "Aptos", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background-color: var(--paper);
+      background-image: linear-gradient(135deg, rgba(20, 107, 77, .07) 0 1px, transparent 1px 28px),
+                        linear-gradient(45deg, rgba(230, 180, 77, .07) 0 1px, transparent 1px 28px);
+      background-size: 28px 28px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px clamp(20px, 6vw, 88px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(242, 245, 239, .94);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 800; }
+    .mark {
+      display: grid;
+      width: 38px;
+      aspect-ratio: 1;
+      place-items: center;
+      border-radius: 12px 12px 12px 4px;
+      color: white;
+      background: var(--green);
+      font-size: 20px;
+    }
+    header a { color: var(--green-dark); font-size: 14px; font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+    main { width: min(1060px, calc(100% - 40px)); margin: 56px auto 80px; }
+    .intro { max-width: 720px; margin-bottom: 32px; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 10px 0 14px; font-size: clamp(36px, 6vw, 62px); line-height: 1.02; letter-spacing: 0; }
+    .intro p { max-width: 650px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.65; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .82fr); gap: 22px; align-items: start; }
+    section { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .data-panel { padding: 26px; }
+    h2 { margin: 0 0 18px; font-size: 20px; letter-spacing: 0; }
+    .data-row { padding: 17px 0; border-top: 1px solid var(--line); }
+    .data-row:first-of-type { border-top: 0; }
+    .data-row h3 { margin: 0 0 6px; font-size: 15px; }
+    .data-row p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .delete h3 { color: var(--red); }
+    .retain h3 { color: var(--green-dark); }
+    .form-panel { padding: 26px; border-top: 4px solid var(--gold); }
+    .form-panel > p { margin: -6px 0 22px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    label { display: block; margin: 16px 0 7px; font-size: 13px; font-weight: 750; }
+    input, textarea {
+      display: block;
+      width: 100%;
+      border: 1px solid #aebdb4;
+      border-radius: 5px;
+      padding: 12px 13px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      font-size: 15px;
+    }
+    input:focus, textarea:focus { outline: 3px solid rgba(20, 107, 77, .18); border-color: var(--green); }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 20px;
+      border: 0;
+      border-radius: 5px;
+      color: white;
+      background: var(--green);
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    button:hover { background: var(--green-dark); }
+    button:disabled { cursor: wait; opacity: .65; }
+    .status { min-height: 24px; margin: 14px 0 0; font-size: 14px; line-height: 1.5; }
+    .status.success { color: var(--green-dark); }
+    .status.error { color: var(--red); }
+    .privacy-note { margin: 18px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    footer { padding: 20px; border-top: 1px solid var(--line); color: var(--muted); text-align: center; font-size: 12px; }
+    @media (max-width: 760px) {
+      main { margin-top: 38px; }
+      .layout { grid-template-columns: 1fr; }
+      header { padding-inline: 20px; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      main { animation: enter .45s ease-out both; }
+      @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark" aria-hidden="true">P</span><span>ParkLagbee</span></div>
+    <a href="mailto:support@parklagbee.com">Contact support</a>
+  </header>
+  <main>
+    <div class="intro">
+      <div class="eyebrow">Privacy request</div>
+      <h1>Request account deletion</h1>
+      <p>Uninstalled ParkLagbee? Submit a deletion request here. We will verify that the request belongs to you before processing it.</p>
+    </div>
+
+    <div class="layout">
+      <section class="data-panel" aria-labelledby="data-heading">
+        <h2 id="data-heading">What happens to your data</h2>
+        <div class="data-row delete">
+          <h3>Deleted from your account</h3>
+          <p>Your profile and contact details, NID or vehicle verification documents, parking listings and uploaded spot photos, reviews, and account-linked booking history are removed when the request is verified and completed.</p>
+        </div>
+        <div class="data-row retain">
+          <h3>May be retained where required</h3>
+          <p>Records needed for legal, financial, fraud-prevention, or dispute-resolution obligations may be retained for the applicable period. Where possible, retained records are detached from your profile or de-identified.</p>
+        </div>
+        <div class="data-row">
+          <h3>Processing</h3>
+          <p>This form creates a request for the ParkLagbee support team; it does not delete the account immediately. We may contact you using the details provided to verify ownership and confirm completion.</p>
+        </div>
+      </section>
+
+      <section class="form-panel" aria-labelledby="form-heading">
+        <h2 id="form-heading">Send a deletion request</h2>
+        <p>Provide the email address or phone number associated with your ParkLagbee account.</p>
+        <form id="deletion-form">
+          <label for="contact">Email or phone</label>
+          <input id="contact" name="contact" type="text" autocomplete="email" maxlength="254" required>
+          <label for="reason">Reason for deletion</label>
+          <textarea id="reason" name="reason" maxlength="2000" required></textarea>
+          <button id="submit-button" type="submit">Submit deletion request</button>
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+        </form>
+        <p class="privacy-note">Your contact details and reason are sent directly to ParkLagbee's deletion-request queue and are used to process this request.</p>
+      </section>
+    </div>
+  </main>
+  <footer>ParkLagbee account and privacy support</footer>
+
+  <script>
+    const SUPABASE_URL = 'https://nfjejfnmugdhaorobvhd.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ChWgLal6M-V3AKePOJVZJg_QVBl5QFl';
+    const form = document.getElementById('deletion-form');
+    const button = document.getElementById('submit-button');
+    const status = document.getElementById('status');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      status.className = 'status';
+      status.textContent = '';
+      button.disabled = true;
+      button.textContent = 'Submitting…';
+
+      const payload = {
+        email_or_phone: document.getElementById('contact').value.trim(),
+        reason: document.getElementById('reason').value.trim()
+      };
+
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/deletion_requests`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('The request could not be submitted. Please try again or contact support.');
+        form.reset();
+        status.classList.add('success');
+        status.textContent = 'Your deletion request has been received. ParkLagbee support will follow up after verifying your account.';
+      } catch (error) {
+        status.classList.add('error');
+        status.textContent = error.message || 'The request could not be submitted. Please try again or contact support.';
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Submit deletion request';
+      }
+    });
+  </script>
+</body>
+</html>

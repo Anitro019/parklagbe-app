@@ -212,7 +212,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               child: const Icon(Icons.admin_panel_settings_rounded, color: AppColors.error, size: 20),
             ),
             const SizedBox(width: 10),
-            const Text('ParkLagbee Admin Panel'),
+            const Expanded(
+              child: Text(
+                'ParkLagbee Admin Panel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -517,6 +523,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                       Expanded(
                         child: Text(
                           complaint.subject,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -530,6 +538,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                         ),
                         child: Text(
                           complaint.status.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -542,6 +552,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   const SizedBox(height: 8),
                   Text(
                     complaint.description,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
@@ -606,11 +618,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
               child: ListTile(
                 title: Text(
                   'Ref: ${booking.bookingReference}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text('Type: ${booking.vehicleType.toUpperCase()} • Total: ৳${booking.totalPrice.toStringAsFixed(0)}'),
+                subtitle: Text(
+                  'Type: ${booking.vehicleType.toUpperCase()} • Total: ৳${booking.totalPrice.toStringAsFixed(0)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: Text(
                   booking.bookingStatus.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
@@ -658,16 +678,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        log.action.replaceAll('_', ' ').toUpperCase(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                      Expanded(
+                        child: Text(
+                          log.action.replaceAll('_', ' ').toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: isDark
+                                ? AppColors.neonLime
+                                : AppColors.accentLight,
+                          ),
                         ),
                       ),
                       Text(
                         DateTimeUtils.formatBdDateTime(log.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
@@ -702,9 +730,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                value,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
               ),
               Icon(icon, size: 22, color: color),
             ],
@@ -775,19 +811,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              ParkButton(
-                text: 'Approve',
-                width: 100,
-                onPressed: () => _handleSpotModeration(spot, 'approved'),
+              Expanded(
+                child: ParkButton(
+                  text: 'Approve',
+                  onPressed: () => _handleSpotModeration(spot, 'approved'),
+                ),
               ),
-              const SizedBox(width: 8),
-              ParkButton(
-                text: 'Reject',
-                type: ParkButtonType.secondary,
-                width: 100,
-                onPressed: () => _handleSpotModeration(spot, 'rejected'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ParkButton(
+                  text: 'Reject',
+                  type: ParkButtonType.secondary,
+                  onPressed: () => _handleSpotModeration(spot, 'rejected'),
+                ),
               ),
             ],
           ),

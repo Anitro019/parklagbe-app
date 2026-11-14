@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/utils/datetime_utils.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../data/models/parking_spot.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../data/repositories/driver_repository.dart';
+import '../../../widgets/content_moderation_menu.dart';
 import '../../../widgets/widgets.dart';
 import '../../driver/spot_details_screen.dart';
 
@@ -25,8 +27,22 @@ class _HomeTabState extends State<HomeTab> {
   TimeOfDay _endTime = const TimeOfDay(hour: 18, minute: 0);
 
   String? _selectedVehicleType;
+  double? _minHourlyPrice;
   double? _maxHourlyPrice;
+  String? _selectedArea;
   String? _selectedDistrict;
+
+  final List<String> _popularAreas = [
+    'All Areas',
+    'Uttara',
+    'Dhanmondi',
+    'Gulshan',
+    'Banani',
+    'Mirpur',
+    'Mohammadpur',
+    'Ashulia',
+    'Bashundhara',
+  ];
 
   late Future<List<ParkingSpot>> _spotsFuture;
   late Future<List<ParkingSpot>> _recentSpotsFuture;
@@ -42,7 +58,9 @@ class _HomeTabState extends State<HomeTab> {
       _spotsFuture = DriverRepository.fetchPublicSpots(
         searchQuery: _searchController.text,
         vehicleType: _selectedVehicleType,
+        minHourlyPrice: _minHourlyPrice,
         maxHourlyPrice: _maxHourlyPrice,
+        area: _selectedArea,
         district: _selectedDistrict,
       );
       _recentSpotsFuture = DriverRepository.fetchRecentlyViewedSpots();
@@ -92,12 +110,16 @@ class _HomeTabState extends State<HomeTab> {
 
   void _openFilterDialog() {
     double tempMaxPrice = _maxHourlyPrice ?? 300.0;
+    double tempMinPrice = _minHourlyPrice ?? 0.0;
     String? tempVehicle = _selectedVehicleType;
+    String? tempArea = _selectedArea;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.deepBlue : AppColors.surfaceLight,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppColors.deepBlue
+          : AppColors.surfaceLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -116,8 +138,41 @@ class _HomeTabState extends State<HomeTab> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimaryLight,
                   ),
+                ),
+                const SizedBox(height: 16),
+
+                // Area / Location Filter
+                Text(
+                  'Area / Neighborhood',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _popularAreas.map((area) {
+                    final isSel =
+                        (area == 'All Areas' && tempArea == null) ||
+                        (tempArea == area);
+                    return FilterChip(
+                      selected: isSel,
+                      label: Text(area),
+                      onSelected: (sel) {
+                        setModalState(() {
+                          tempArea = (area == 'All Areas' || !sel)
+                              ? null
+                              : area;
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 20),
 
@@ -130,44 +185,58 @@ class _HomeTabState extends State<HomeTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     FilterChip(
-                      selected: tempVehicle == null,
-                      label: const Text('All Vehicles'),
-                      onSelected: (_) => setModalState(() => tempVehicle = null),
+                      selected: tempVehicle == null || tempVehicle == 'both',
+                      label: const Text('Both / All'),
+                      onSelected: (_) =>
+                          setModalState(() => tempVehicle = null),
                     ),
-                    const SizedBox(width: 8),
                     FilterChip(
                       selected: tempVehicle == 'car',
-                      label: const Text('Car'),
-                      onSelected: (_) => setModalState(() => tempVehicle = 'car'),
+                      label: const Text('Car / SUV'),
+                      onSelected: (_) =>
+                          setModalState(() => tempVehicle = 'car'),
                     ),
-                    const SizedBox(width: 8),
                     FilterChip(
                       selected: tempVehicle == 'bike',
                       label: const Text('Motorbike'),
-                      onSelected: (_) => setModalState(() => tempVehicle = 'bike'),
+                      onSelected: (_) =>
+                          setModalState(() => tempVehicle = 'bike'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
 
-                // Max Hourly Price Slider
+                // Hourly Budget Price Range
                 Text(
-                  'Max Hourly Price: ৳${tempMaxPrice.toStringAsFixed(0)}',
+                  'Hourly Rate: ৳${tempMinPrice.toStringAsFixed(0)} - ৳${tempMaxPrice.toStringAsFixed(0)} / hr',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: isDark ? AppColors.neonLime : AppColors.accentLight,
                   ),
                 ),
-                Slider(
-                  value: tempMaxPrice,
-                  min: 20,
+                RangeSlider(
+                  values: RangeValues(tempMinPrice, tempMaxPrice),
+                  min: 0,
                   max: 500,
-                  divisions: 24,
-                  activeColor: isDark ? AppColors.neonLime : AppColors.accentLight,
-                  onChanged: (val) => setModalState(() => tempMaxPrice = val),
+                  divisions: 50,
+                  activeColor: isDark
+                      ? AppColors.neonLime
+                      : AppColors.accentLight,
+                  labels: RangeLabels(
+                    '৳${tempMinPrice.toStringAsFixed(0)}',
+                    '৳${tempMaxPrice.toStringAsFixed(0)}',
+                  ),
+                  onChanged: (RangeValues values) {
+                    setModalState(() {
+                      tempMinPrice = values.start;
+                      tempMaxPrice = values.end;
+                    });
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -175,8 +244,10 @@ class _HomeTabState extends State<HomeTab> {
                   text: 'Apply Filters',
                   onPressed: () {
                     setState(() {
+                      _minHourlyPrice = tempMinPrice;
                       _maxHourlyPrice = tempMaxPrice;
                       _selectedVehicleType = tempVehicle;
+                      _selectedArea = tempArea;
                     });
                     Navigator.of(ctx).pop();
                     _refreshSpots();
@@ -204,7 +275,9 @@ class _HomeTabState extends State<HomeTab> {
               'ParkLagbee',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                color: isDark
+                    ? AppColors.textPrimaryDark
+                    : AppColors.textPrimaryLight,
               ),
             ),
           ],
@@ -236,7 +309,10 @@ class _HomeTabState extends State<HomeTab> {
 
               // Date & Time Picker Selector Row
               ParkCard(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     // Date
@@ -251,18 +327,29 @@ class _HomeTabState extends State<HomeTab> {
                               'Date',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.calendar_today_rounded, size: 14, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppColors.neonLime
+                                      : AppColors.accentLight,
+                                ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     DateTimeUtils.formatBdDate(_selectedDate),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -286,18 +373,29 @@ class _HomeTabState extends State<HomeTab> {
                               'Start Time',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.access_time_rounded, size: 14, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppColors.neonLime
+                                      : AppColors.accentLight,
+                                ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     _startTime.format(context),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -321,18 +419,29 @@ class _HomeTabState extends State<HomeTab> {
                               'End Time',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondaryLight,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.access_time_filled_rounded, size: 14, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+                                Icon(
+                                  Icons.access_time_filled_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppColors.neonLime
+                                      : AppColors.accentLight,
+                                ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     _endTime.format(context),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -358,10 +467,16 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  OutlinedButton.icon(
-                    onPressed: _openFilterDialog,
-                    icon: const Icon(Icons.tune, size: 18),
-                    label: const Text('Filter'),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openFilterDialog,
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text(
+                        'Filter',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -382,7 +497,9 @@ class _HomeTabState extends State<HomeTab> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -391,7 +508,8 @@ class _HomeTabState extends State<HomeTab> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: recentSpots.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 10),
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 10),
                           itemBuilder: (context, index) {
                             final spot = recentSpots[index];
                             return SizedBox(
@@ -400,7 +518,8 @@ class _HomeTabState extends State<HomeTab> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (context) => SpotDetailsScreen(spot: spot),
+                                      builder: (context) =>
+                                          SpotDetailsScreen(spot: spot),
                                     ),
                                   );
                                 },
@@ -413,23 +532,36 @@ class _HomeTabState extends State<HomeTab> {
                                       spot.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${spot.area}, ${spot.district}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      spot.hourlyPrice != null ? '${Formatters.formatCurrency(spot.hourlyPrice!)}/hr' : 'Available',
+                                      '${spot.area}, ${spot.district}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark
+                                            ? AppColors.textSecondaryDark
+                                            : AppColors.textSecondaryLight,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      spot.hourlyPrice != null
+                                          ? '${Formatters.formatCurrency(spot.hourlyPrice!)}/hr'
+                                          : 'Available',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                                        color: isDark
+                                            ? AppColors.neonLime
+                                            : AppColors.accentLight,
                                       ),
                                     ),
                                   ],
@@ -451,7 +583,9 @@ class _HomeTabState extends State<HomeTab> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                  color: isDark
+                      ? AppColors.textPrimaryDark
+                      : AppColors.textPrimaryLight,
                 ),
               ),
               const SizedBox(height: 12),
@@ -463,7 +597,9 @@ class _HomeTabState extends State<HomeTab> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 40.0),
-                      child: LoadingIndicator(message: 'Searching available parking spots...'),
+                      child: LoadingIndicator(
+                        message: 'Searching available parking spots...',
+                      ),
                     );
                   }
 
@@ -472,12 +608,19 @@ class _HomeTabState extends State<HomeTab> {
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          const Icon(Icons.wifi_off_outlined, color: AppColors.error, size: 36),
+                          const Icon(
+                            Icons.wifi_off_outlined,
+                            color: AppColors.error,
+                            size: 36,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'Unable to connect: ${snapshot.error}',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.error, fontSize: 13),
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           ParkButton(
@@ -504,7 +647,8 @@ class _HomeTabState extends State<HomeTab> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: spots.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final spot = spots[index];
                       return _buildPublicSpotCard(spot, isDark);
@@ -528,12 +672,13 @@ class _HomeTabState extends State<HomeTab> {
     }
 
     return ParkCard(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        final blockedOwner = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (context) => SpotDetailsScreen(spot: spot),
           ),
         );
+        if (blockedOwner == true && mounted) _refreshSpots();
       },
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -545,64 +690,144 @@ class _HomeTabState extends State<HomeTab> {
               Expanded(
                 child: Text(
                   spot.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                    color: isDark
+                        ? AppColors.textPrimaryDark
+                        : AppColors.textPrimaryLight,
                   ),
                 ),
               ),
-              Text(
-                priceText,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.neonLime : AppColors.accentLight,
+              Flexible(
+                child: Text(
+                  priceText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.neonLime : AppColors.accentLight,
+                  ),
                 ),
+              ),
+              ContentModerationMenu(
+                targetUserId: spot.ownerId,
+                spotId: spot.id,
+                onBlocked: _refreshSpots,
               ),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.location_on_outlined, size: 15, color: isDark ? AppColors.neonLime : AppColors.accentLight),
+              Icon(
+                Icons.location_on_outlined,
+                size: 15,
+                color: isDark ? AppColors.neonLime : AppColors.accentLight,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   '${spot.area}, ${spot.district}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.schedule_outlined,
+                size: 15,
+                color: isDark ? AppColors.neonLime : AppColors.accentLight,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  DateTimeUtils.formatAvailabilitySchedule(
+                    availableFrom: spot.effectiveAvailableFrom,
+                    availableTo: spot.effectiveAvailableTo,
+                    availableHoursStart: spot.availableHoursStart,
+                    availableHoursEnd: spot.availableHoursEnd,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (spot.vehicleTypes.contains('car')) ...[
-                Icon(Icons.directions_car, size: 16, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
-                const SizedBox(width: 4),
-                const Text('Car', style: TextStyle(fontSize: 11)),
-                const SizedBox(width: 10),
-              ],
-              if (spot.vehicleTypes.contains('bike')) ...[
-                Icon(Icons.two_wheeler, size: 16, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
-                const SizedBox(width: 4),
-                const Text('Motorbike', style: TextStyle(fontSize: 11)),
-                const SizedBox(width: 10),
-              ],
+              if (spot.vehicleTypes.contains('car'))
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.directions_car,
+                      size: 16,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondaryLight,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('Car', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
+              if (spot.vehicleTypes.contains('bike'))
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.two_wheeler,
+                      size: 16,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondaryLight,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('Motorbike', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
               if (spot.advanceRequirementPercentage > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '${spot.advanceRequirementPercentage.toStringAsFixed(0)}% Advance Req',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.warning),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.warning,
+                    ),
                   ),
                 ),
             ],

@@ -21,10 +21,16 @@ RETURNS TRIGGER AS $$
 DECLARE
     requested_role TEXT;
 BEGIN
-    requested_role := LOWER(COALESCE(NEW.raw_user_meta_data->>'account_type', 'driver'));
+    requested_role := LOWER(COALESCE(
+        NEW.raw_user_meta_data->>'account_type',
+        NEW.raw_user_meta_data->>'role',
+        'driver'
+    ));
 
-    -- Prevent self-assignment of admin role during sign-up metadata
-    IF requested_role NOT IN ('driver', 'host') THEN
+    -- Support 'host', 'spot_owner', 'owner' mapping safely to 'host'
+    IF requested_role IN ('host', 'spot_owner', 'owner') THEN
+        requested_role := 'host';
+    ELSE
         requested_role := 'driver';
     END IF;
 
@@ -32,9 +38,15 @@ BEGIN
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'full_name', 'ParkLagbee User'),
-        NEW.phone,
+        COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone),
         requested_role
     )
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Guarantee auth.users insert NEVER aborts or fails trigger, ensuring confirmation email is dispatched
+    INSERT INTO public.profiles (id, full_name, account_type)
+    VALUES (NEW.id, 'ParkLagbee User', 'driver')
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
 END;
