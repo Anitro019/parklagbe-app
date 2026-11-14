@@ -17,6 +17,11 @@ class LegalDocs {
     if (!opened && context.mounted) showTermsDialog(context);
   }
 
+  /// Launch external Account Deletion web link
+  static Future<void> openAccountDeletion(BuildContext context) async {
+    await openExternalUrl(AppUrls.accountDeletionUrl);
+  }
+
   static Future<bool> openExternalUrl(String rawUrl) async {
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || (!uri.isScheme('https') && !uri.isScheme('http'))) {
